@@ -1,5 +1,6 @@
 
 export const UPSCALE_FACTORS = [2, 4];
+export const ASPECT_RATIOS = ['1:1', '16:9', '9:16', '4:3', '3:4'];
 
 // Artistic style modifiers to be applied via prompt engineering.
 // The UI will add context (e.g., model name, 'Style' suffix) for display.

@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Modality, GenerateContentResponse } from "@google/genai";
 import { ImageFile } from '../types';
 import { TEXT_GENERATION_MODEL, IMAGE_EDIT_MODEL } from '../constants';
@@ -9,7 +8,7 @@ if (!process.env.API_KEY) {
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-export const generateImageFromText = async (prompt: string): Promise<string> => {
+export const generateImageFromText = async (prompt: string, aspectRatio: string): Promise<string> => {
     try {
         const response = await ai.models.generateImages({
             model: TEXT_GENERATION_MODEL,
@@ -17,7 +16,7 @@ export const generateImageFromText = async (prompt: string): Promise<string> => 
             config: {
               numberOfImages: 1,
               outputMimeType: 'image/jpeg',
-              aspectRatio: '1:1',
+              aspectRatio: aspectRatio,
             },
         });
 
@@ -46,18 +45,20 @@ const processImageEditingResponse = (response: GenerateContentResponse): string 
     throw new Error("No image was found in the model's response.");
 };
 
-export const editImage = async (prompt: string, image: ImageFile): Promise<string> => {
+export const editImage = async (prompt: string, images: ImageFile[]): Promise<string> => {
     try {
+        const imageParts = images.map(image => ({
+            inlineData: {
+                data: image.base64,
+                mimeType: image.mimeType,
+            },
+        }));
+
         const response = await ai.models.generateContent({
             model: IMAGE_EDIT_MODEL,
             contents: {
                 parts: [
-                    {
-                        inlineData: {
-                            data: image.base64,
-                            mimeType: image.mimeType,
-                        },
-                    },
+                    ...imageParts,
                     { text: prompt },
                 ],
             },

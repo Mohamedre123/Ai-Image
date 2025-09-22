@@ -1,12 +1,13 @@
 import React, { useState, useCallback } from 'react';
 import { AppMode, ImageFile } from './types';
-import { UPSCALE_FACTORS, ARTISTIC_STYLES } from './constants';
+import { UPSCALE_FACTORS, ARTISTIC_STYLES, ASPECT_RATIOS } from './constants';
 import * as geminiService from './services/geminiService';
 
 import TabButton from './components/TabButton';
 import PromptInput from './components/PromptInput';
 import ActionButton from './components/ActionButton';
 import ImageUploader from './components/ImageUploader';
+import MultiImageUploader from './components/MultiImageUploader';
 import ImageDisplay from './components/ImageDisplay';
 import ErrorAlert from './components/ErrorAlert';
 import { SparklesIcon, DownloadIcon } from './components/icons';
@@ -16,11 +17,13 @@ function App() {
   const [prompt, setPrompt] = useState<string>('');
 
   const [sourceImage, setSourceImage] = useState<ImageFile | null>(null);
+  const [sourceImages, setSourceImages] = useState<ImageFile[]>([]);
   const [referenceImage, setReferenceImage] = useState<ImageFile | null>(null);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
 
   const [upscaleFactor, setUpscaleFactor] = useState<number>(UPSCALE_FACTORS[0]);
   const [artisticStyle, setArtisticStyle] = useState<string>(ARTISTIC_STYLES[0]);
+  const [aspectRatio, setAspectRatio] = useState<string>(ASPECT_RATIOS[0]);
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,20 +32,26 @@ function App() {
     setMode(newMode);
     setPrompt('');
     setSourceImage(null);
+    setSourceImages([]);
     setReferenceImage(null);
     setGeneratedImage(null);
     setError(null);
     setIsLoading(false);
     setUpscaleFactor(UPSCALE_FACTORS[0]);
     setArtisticStyle(ARTISTIC_STYLES[0]);
+    setAspectRatio(ASPECT_RATIOS[0]);
   };
 
-  const getFullPrompt = (basePrompt: string, style: string): string => {
-    if (style === 'Default') {
-      return basePrompt;
+  const getFullPrompt = useCallback((basePrompt: string, style: string, aspectRatio: string): string => {
+    let fullPrompt = basePrompt;
+    if (style !== 'Default') {
+      fullPrompt = `${fullPrompt}, in the artistic style of ${style}`;
     }
-    return `${basePrompt}, in the artistic style of ${style}`;
-  };
+    if (mode === AppMode.ImageToImage && aspectRatio !== '1:1') {
+        fullPrompt = `${fullPrompt}, rendered with a ${aspectRatio} aspect ratio`;
+    }
+    return fullPrompt;
+  }, [mode]);
 
   const handleGenerate = useCallback(async () => {
     if (!prompt) {
@@ -53,38 +62,38 @@ function App() {
     setIsLoading(true);
     setGeneratedImage(null);
     try {
-      const fullPrompt = getFullPrompt(prompt, artisticStyle);
-      const result = await geminiService.generateImageFromText(fullPrompt);
+      const fullPrompt = getFullPrompt(prompt, artisticStyle, aspectRatio);
+      const result = await geminiService.generateImageFromText(fullPrompt, aspectRatio);
       setGeneratedImage(result);
     } catch (e: any) {
       setError(e.message);
     } finally {
       setIsLoading(false);
     }
-  }, [prompt, artisticStyle]);
+  }, [prompt, artisticStyle, aspectRatio, getFullPrompt]);
   
   const handleEdit = useCallback(async () => {
     if (!prompt) {
         setError('Please enter a prompt.');
         return;
     }
-    if (!sourceImage) {
-        setError('Please upload a source image.');
+    if (sourceImages.length === 0) {
+        setError('Please upload at least one reference image.');
         return;
     }
     setError(null);
     setIsLoading(true);
     setGeneratedImage(null);
     try {
-        const fullPrompt = getFullPrompt(prompt, artisticStyle);
-        const result = await geminiService.editImage(fullPrompt, sourceImage);
+        const fullPrompt = getFullPrompt(prompt, artisticStyle, aspectRatio);
+        const result = await geminiService.editImage(fullPrompt, sourceImages);
         setGeneratedImage(result);
     } catch (e: any) {
         setError(e.message);
     } finally {
         setIsLoading(false);
     }
-  }, [prompt, sourceImage, artisticStyle]);
+  }, [prompt, sourceImages, artisticStyle, aspectRatio, getFullPrompt]);
 
   const handleUpscale = useCallback(async () => {
     if (!sourceImage) {
@@ -96,7 +105,7 @@ function App() {
     setIsLoading(true);
     setGeneratedImage(null);
     try {
-        const result = await geminiService.editImage(upscalePrompt, sourceImage);
+        const result = await geminiService.editImage(upscalePrompt, [sourceImage]);
         setGeneratedImage(result);
     } catch (e: any) {
         setError(e.message);
@@ -141,11 +150,9 @@ function App() {
     document.body.removeChild(link);
   }, [generatedImage]);
 
-  const renderStyleSelector = () => {
-    const modelName = mode === AppMode.TextToImage ? "Imagen 4" : "Nano Banana";
-    return (
+  const renderStyleSelector = () => (
      <div className="my-6">
-        <label htmlFor="style-select" className="block text-sm font-medium text-gray-300 mb-2">Artistic Style (using {modelName})</label>
+        <label htmlFor="style-select" className="block text-sm font-medium text-gray-300 mb-2">Artistic Style</label>
         <div className="relative">
             <select
                 id="style-select"
@@ -165,7 +172,25 @@ function App() {
             </div>
         </div>
     </div>
-  )};
+  );
+
+  const renderAspectRatioSelector = () => (
+    <div className="my-6">
+      <label className="block text-sm font-medium text-gray-300 mb-2">Aspect Ratio</label>
+      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 rounded-lg bg-gray-800 p-1">
+        {ASPECT_RATIOS.map(ratio => (
+          <button 
+            key={ratio} 
+            onClick={() => setAspectRatio(ratio)} 
+            disabled={isLoading}
+            className={`w-full rounded-md py-2 text-sm font-medium transition-colors ${aspectRatio === ratio ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-700'} disabled:opacity-50 disabled:hover:bg-gray-700/50 disabled:cursor-not-allowed`}
+          >
+            {ratio}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 
   const renderControls = () => {
     switch (mode) {
@@ -175,6 +200,7 @@ function App() {
             <h2 className="text-xl font-bold mb-4">Text-to-Image</h2>
             <p className="text-gray-400 mb-6">Describe the image you want to create. Be as specific as you can and select an artistic style for the best results.</p>
             <PromptInput value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="e.g., A futuristic cityscape at sunset" disabled={isLoading} />
+            {renderAspectRatioSelector()}
             {renderStyleSelector()}
             <ActionButton onClick={handleGenerate} isLoading={isLoading} disabled={!prompt}>
               Generate Image
@@ -185,13 +211,14 @@ function App() {
          return (
           <>
             <h2 className="text-xl font-bold mb-4">Image-to-Image</h2>
-             <p className="text-gray-400 mb-6">Upload an image, describe the changes you want, and optionally select an artistic style to apply.</p>
-            <ImageUploader id="source-image" title="Source Image" onImageUpload={setSourceImage} />
+             <p className="text-gray-400 mb-6">Upload one or more reference images, describe the changes you want, and optionally select an artistic style to apply.</p>
+            <MultiImageUploader id="source-images" title="Reference Images" onImagesUpload={setSourceImages} />
             <div className="my-6">
-                <PromptInput value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="e.g., Add a pair of sunglasses" disabled={isLoading} />
+                <PromptInput value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="e.g., Create a fantasy landscape combining these images" disabled={isLoading} />
             </div>
+            {renderAspectRatioSelector()}
             {renderStyleSelector()}
-            <ActionButton onClick={handleEdit} isLoading={isLoading} disabled={!prompt || !sourceImage}>
+            <ActionButton onClick={handleEdit} isLoading={isLoading} disabled={!prompt || sourceImages.length === 0}>
               Edit Image
             </ActionButton>
           </>
@@ -222,7 +249,7 @@ function App() {
                 <label className="block text-sm font-medium text-gray-300 mb-2">Upscale Factor</label>
                 <div className="flex space-x-2 rounded-lg bg-gray-800 p-1">
                     {UPSCALE_FACTORS.map(factor => (
-                        <button key={factor} onClick={() => setUpscaleFactor(factor)} className={`w-full rounded-md py-2 text-sm font-medium transition-colors ${upscaleFactor === factor ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}>
+                        <button key={factor} onClick={() => setUpscaleFactor(factor)} disabled={isLoading} className={`w-full rounded-md py-2 text-sm font-medium transition-colors ${upscaleFactor === factor ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-700'} disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-800`}>
                             {factor}x
                         </button>
                     ))}
