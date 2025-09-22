@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import { AppMode, ImageFile } from './types';
 import { UPSCALE_FACTORS, ARTISTIC_STYLES } from './constants';
@@ -92,7 +91,7 @@ function App() {
         setError('Please upload an image to upscale.');
         return;
     }
-    const upscalePrompt = `Increase the resolution of this image by ${upscaleFactor}x. Do not enhance details or improve the quality. The image should simply be made larger while preserving the original content and style.`;
+    const upscalePrompt = `Upscale this image by a factor of ${upscaleFactor}x. Enhance the details, clarity, and overall quality of the image, making it sharper and more defined. The result should be a high-resolution version of the original image.`;
     setError(null);
     setIsLoading(true);
     setGeneratedImage(null);
