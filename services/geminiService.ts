@@ -1,6 +1,7 @@
 
 import { GoogleGenAI, Modality, GenerateContentResponse } from "@google/genai";
 import { ImageFile } from '../types';
+import { TEXT_GENERATION_MODEL, IMAGE_EDIT_MODEL } from '../constants';
 
 if (!process.env.API_KEY) {
     throw new Error("API_KEY environment variable not set");
@@ -11,7 +12,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 export const generateImageFromText = async (prompt: string): Promise<string> => {
     try {
         const response = await ai.models.generateImages({
-            model: 'imagen-4.0-generate-001',
+            model: TEXT_GENERATION_MODEL,
             prompt: prompt,
             config: {
               numberOfImages: 1,
@@ -48,7 +49,7 @@ const processImageEditingResponse = (response: GenerateContentResponse): string 
 export const editImage = async (prompt: string, image: ImageFile): Promise<string> => {
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash-image-preview',
+            model: IMAGE_EDIT_MODEL,
             contents: {
                 parts: [
                     {
@@ -75,7 +76,7 @@ export const virtualTryOn = async (personImage: ImageFile, clothingImage: ImageF
     const prompt = `Please apply the clothing item from the second image onto the person in the first image. Maintain the person's pose and the original background as much as possible. The clothing should look natural and fit well.`;
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash-image-preview',
+            model: IMAGE_EDIT_MODEL,
             contents: {
                 parts: [
                     {

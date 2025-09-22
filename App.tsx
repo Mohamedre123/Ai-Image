@@ -1,6 +1,7 @@
+
 import React, { useState, useCallback } from 'react';
 import { AppMode, ImageFile } from './types';
-import { UPSCALE_FACTORS } from './constants';
+import { UPSCALE_FACTORS, ARTISTIC_STYLES } from './constants';
 import * as geminiService from './services/geminiService';
 
 import TabButton from './components/TabButton';
@@ -20,6 +21,7 @@ function App() {
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
 
   const [upscaleFactor, setUpscaleFactor] = useState<number>(UPSCALE_FACTORS[0]);
+  const [artisticStyle, setArtisticStyle] = useState<string>(ARTISTIC_STYLES[0]);
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,6 +35,14 @@ function App() {
     setError(null);
     setIsLoading(false);
     setUpscaleFactor(UPSCALE_FACTORS[0]);
+    setArtisticStyle(ARTISTIC_STYLES[0]);
+  };
+
+  const getFullPrompt = (basePrompt: string, style: string): string => {
+    if (style === 'Default') {
+      return basePrompt;
+    }
+    return `${basePrompt}, in the artistic style of ${style}`;
   };
 
   const handleGenerate = useCallback(async () => {
@@ -44,14 +54,15 @@ function App() {
     setIsLoading(true);
     setGeneratedImage(null);
     try {
-      const result = await geminiService.generateImageFromText(prompt);
+      const fullPrompt = getFullPrompt(prompt, artisticStyle);
+      const result = await geminiService.generateImageFromText(fullPrompt);
       setGeneratedImage(result);
     } catch (e: any) {
       setError(e.message);
     } finally {
       setIsLoading(false);
     }
-  }, [prompt]);
+  }, [prompt, artisticStyle]);
   
   const handleEdit = useCallback(async () => {
     if (!prompt) {
@@ -66,14 +77,15 @@ function App() {
     setIsLoading(true);
     setGeneratedImage(null);
     try {
-        const result = await geminiService.editImage(prompt, sourceImage);
+        const fullPrompt = getFullPrompt(prompt, artisticStyle);
+        const result = await geminiService.editImage(fullPrompt, sourceImage);
         setGeneratedImage(result);
     } catch (e: any) {
         setError(e.message);
     } finally {
         setIsLoading(false);
     }
-  }, [prompt, sourceImage]);
+  }, [prompt, sourceImage, artisticStyle]);
 
   const handleUpscale = useCallback(async () => {
     if (!sourceImage) {
@@ -130,30 +142,56 @@ function App() {
     document.body.removeChild(link);
   }, [generatedImage]);
 
+  const renderStyleSelector = () => {
+    const modelName = mode === AppMode.TextToImage ? "Imagen 4" : "Nano Banana";
+    return (
+     <div className="my-6">
+        <label htmlFor="style-select" className="block text-sm font-medium text-gray-300 mb-2">Artistic Style (using {modelName})</label>
+        <div className="relative">
+            <select
+                id="style-select"
+                value={artisticStyle}
+                onChange={(e) => setArtisticStyle(e.target.value)}
+                disabled={isLoading}
+                className="w-full appearance-none bg-gray-900 border border-gray-700 rounded-lg p-3 text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow duration-200 disabled:opacity-50"
+            >
+                {ARTISTIC_STYLES.map(style => (
+                    <option key={style} value={style}>
+                        {style === 'Default' ? 'Default' : `${style} Style`}
+                    </option>
+                ))}
+            </select>
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+            </div>
+        </div>
+    </div>
+  )};
+
   const renderControls = () => {
     switch (mode) {
       case AppMode.TextToImage:
         return (
           <>
             <h2 className="text-xl font-bold mb-4">Text-to-Image</h2>
-            <p className="text-gray-400 mb-6">Describe the image you want to create. Be as specific as you can for the best results.</p>
-            <PromptInput value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="e.g., A futuristic cityscape at sunset, neon lights reflecting on wet streets" disabled={isLoading} />
-            <div className="mt-6">
-              <ActionButton onClick={handleGenerate} isLoading={isLoading} disabled={!prompt}>
-                Generate Image
-              </ActionButton>
-            </div>
+            <p className="text-gray-400 mb-6">Describe the image you want to create. Be as specific as you can and select an artistic style for the best results.</p>
+            <PromptInput value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="e.g., A futuristic cityscape at sunset" disabled={isLoading} />
+            {renderStyleSelector()}
+            <ActionButton onClick={handleGenerate} isLoading={isLoading} disabled={!prompt}>
+              Generate Image
+            </ActionButton>
           </>
         );
       case AppMode.ImageToImage:
          return (
           <>
             <h2 className="text-xl font-bold mb-4">Image-to-Image</h2>
-             <p className="text-gray-400 mb-6">Upload an image and describe the changes you want to make. For example, "change the background to a beach" or "make it look like a watercolor painting."</p>
+             <p className="text-gray-400 mb-6">Upload an image, describe the changes you want, and optionally select an artistic style to apply.</p>
             <ImageUploader id="source-image" title="Source Image" onImageUpload={setSourceImage} />
             <div className="my-6">
-                <PromptInput value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="e.g., Add a pair of sunglasses to the person" disabled={isLoading} />
+                <PromptInput value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="e.g., Add a pair of sunglasses" disabled={isLoading} />
             </div>
+            {renderStyleSelector()}
             <ActionButton onClick={handleEdit} isLoading={isLoading} disabled={!prompt || !sourceImage}>
               Edit Image
             </ActionButton>
@@ -163,7 +201,7 @@ function App() {
         return (
           <>
             <h2 className="text-xl font-bold mb-4">Virtual Try-on</h2>
-            <p className="text-gray-400 mb-6">Upload an image of a person and another image of a clothing item. The AI will attempt to place the clothing onto the person.</p>
+            <p className="text-gray-400 mb-6">Upload an image of a person and another of a clothing item. The AI will place the clothing onto the person.</p>
             <div className="space-y-6">
                 <ImageUploader id="person-image" title="Person Image" onImageUpload={setSourceImage} />
                 <ImageUploader id="clothing-image" title="Clothing Image" onImageUpload={setReferenceImage} />
