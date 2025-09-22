@@ -1,0 +1,5 @@
+{
+  "name": "AI Image Studio",
+  "description": "An advanced AI-powered application to create, edit, and enhance images. Features include text-to-image generation, image-to-image editing, virtual clothing try-on, and AI-powered image upscaling.",
+  "requestFramePermissions": []
+}
