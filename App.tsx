@@ -92,7 +92,7 @@ function App() {
         setError('Please upload an image to upscale.');
         return;
     }
-    const upscalePrompt = `Upscale this image by ${upscaleFactor}x. Enhance details, increase resolution, and improve overall quality without adding new elements or changing the composition.`;
+    const upscalePrompt = `Increase the resolution of this image by ${upscaleFactor}x. Do not enhance details or improve the quality. The image should simply be made larger while preserving the original content and style.`;
     setError(null);
     setIsLoading(true);
     setGeneratedImage(null);
@@ -217,7 +217,7 @@ function App() {
         return (
           <>
             <h2 className="text-xl font-bold mb-4">AI Image Upscaler</h2>
-            <p className="text-gray-400 mb-6">Increase the resolution and enhance the detail of your images. Upload an image and select an upscale factor.</p>
+            <p className="text-gray-400 mb-6">Increase the resolution of your images. Upload an image and select an upscale factor.</p>
             <ImageUploader id="upscale-image" title="Image to Upscale" onImageUpload={setSourceImage} />
             <div className="my-6">
                 <label className="block text-sm font-medium text-gray-300 mb-2">Upscale Factor</label>
